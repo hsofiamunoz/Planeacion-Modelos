@@ -218,20 +218,6 @@ app.layout = html.Div(
         html.Div(children=html.H1("")),
         html.Div(id='mensaje_boton')
 
-
-        # TABLA
-        # html.Div(
-        #     children=[
-        #         html.Div(
-        #             children=[dash_table.DataTable(df.to_dict('records'),
-        #                                            [{"name": i, "id": i}
-        #                                             for i in df.columns[1:4]],
-        #                                            id='table'
-        #                                            )],
-        #             className="card"
-        #         ),
-        #     ], className="wrapper"
-        # )
     ]
 )
 
