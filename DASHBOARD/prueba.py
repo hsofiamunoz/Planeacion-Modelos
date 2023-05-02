@@ -7,7 +7,9 @@ import pandas as pd
 from dash import Dash, dcc, html, dash_table
 import functions
 from dash.dependencies import Input, Output
-
+from datetime import date
+from datetime import date, timedelta
+import plotly.graph_objs as go
 # -----------------------------------------------------------------------
 # DATOS
 data = functions.load_data()
@@ -21,6 +23,9 @@ concepto_diseno = data["Concepto Diseño"].sort_values().unique()
 
 
 data_plot = functions.DATA_preparation_2022('NIÑO', 'CAMISA MANGA LARGA', data)
+
+today = date.today()
+eleven_months = today + timedelta(days=11*30)
 
 # -----------------------------------------------------------------------
 # APLICACION
@@ -95,8 +100,10 @@ app.layout = html.Div(
                         ),
                         dcc.DatePickerRange(
                             id="date-range",
-                            # min_date_allowed=data["FECHA VENTA"].min().date(),
-                            # max_date_allowed=data["FECHA VENTA"].max().date(),
+                            min_date_allowed=today,
+                            max_date_allowed=eleven_months,
+                            display_format='MM, YYYY',
+                            minimum_nights=60,
                             # start_date=data["FECHA VENTA"].min().date(),
                             # end_date=data["FECHA VENTA"].max().date(),
                         ),
@@ -122,6 +129,7 @@ app.layout = html.Div(
                                 for canal in canales
                             ],
                             value="CANAL",
+                            multi=True,
                             clearable=False,
                             className="dropdown",
                         ),
@@ -144,23 +152,6 @@ app.layout = html.Div(
                         ),
                     ]
                 ),
-                # TIPO ARTICULO
-                # html.Div(
-                #     children=[
-                #         html.Div(children="Tipo", className="menu-title"),
-                #         dcc.Dropdown(
-                #             id="tipo-filter",
-                #             options=[
-                #                 {"label": tipo, "value": tipo}
-                #                 for tipo in tipos_articulo
-                #             ],
-                #             value="CAMISA MANGA LARGA",
-                #             clearable=False,
-                #             searchable=False,
-                #             className="dropdown",
-                #         ),
-                #     ],
-                # ),
 
             ],
             className="menu",
@@ -212,11 +203,21 @@ app.layout = html.Div(
         # BOTON
         html.Div(
             children=[
-                html.Button('Generar Pronostico', id='my-button')
+                html.Button('Generar Pronostico',
+                            id='my-button', n_clicks=0)
             ]
         ),
+
         html.Div(children=html.H1("")),
-        html.Div(id='mensaje_boton')
+        html.Div(id='mensaje_boton'),
+
+        html.Div(
+            children=[
+                html.Div(id="graph-container",
+                         ),
+            ],
+            className="wrapper",
+        )
 
     ]
 )
@@ -235,7 +236,7 @@ def update_output(mundo, tipo):
     else:
         mes_total = len(functions.DATA_preparation_2022(
             mundo, tipo, data))
-        return f"Usted ha seleccionado {mundo} and {tipo}. Cuenta con {mes_total} datos "
+        return f"Usted ha seleccionado {mundo} and {tipo}. Cuenta con {mes_total} meses de venta "
 
 
 @ app.callback(
@@ -295,14 +296,35 @@ def update_charts(mundo, tipo):
 def mensaje_boton(n_clicks):
     if n_clicks is not None:
         return f"hola mundo"
-# def generate_table(n_clicks):
-#     if n_clicks is not None:
-#         # Generate table here based on the button click
-#         table_data = [['Name', 'Age'], ['John', '28'], ['Jane', '25']]
-#         rows = []
-#         for row in table_data:
-#             rows.append(html.Tr([html.Td(cell) for cell in row]))
-#         return rows
+
+
+@app.callback(Output('graph-container', 'children'),
+              Input('my-button', 'n_clicks'),
+              Input("mundo-filter", component_property="value"),
+              Input("tipo-filter", component_property="value"))
+def create_graph(n_clicks, mundo, tipo):
+    # Create a new graph only when the button is clicked
+    if n_clicks > 0:
+        # data_results = functions.model_future_function(
+        #     functions.filter_function(mundo, tipo, functions.load_data())
+        # )
+
+        # Define the data for the graph
+        # data = go.Scatter(x=data_results.index,
+        #                   y=data_results['predicted_sales'])
+        data = [go.Scatter(x=[1, 2, 3], y=[4, 2, 1])]
+
+        # Define the layout for the graph
+        layout = go.Layout(title='Pronostico')
+
+        # Create the graph figure
+        figure = {'data': data, 'layout': layout}
+
+        # Return the graph component to be displayed
+        return dcc.Graph(id='new-graph', figure=figure)
+
+    # If the button is not clicked, return an empty div
+    return html.Div()
 
 
 # INICIALIZACION DEL TABLERO

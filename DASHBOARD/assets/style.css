@@ -107,14 +107,18 @@ body {
   cursor: pointer;
   box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.2);
 
-  position: absolute;
+  /* position: absolute; */
   left: 50%;
   margin-top: 32px;
-  transform: translate(-50%, -50%);
+  /* transform: translate(-50%, -50%); */
 }
 
 #mensaje_boton {
   font-family: "PF Din Text Comp Pro Light";
-  margin: 0 auto;
+  margin: 32px;
   margin-top: 32px;
+}
+
+#date-range {
+  font-family: "PF Din Text Comp Pro Light";
 }

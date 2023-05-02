@@ -28,23 +28,27 @@ warnings.filterwarnings('ignore')
 
 
 def load_data():
-    conn = db.connect(address='10.0.0.110', port='30015',
-                      user='DESARROLLO', password='DevHermeco.2022')
-    sql = '''SELECT "AÑO",
-    "MES",
-    "UNIDADES",
-    "Sublínea",
-    "Mundo",
-    "Grupo de Artículo",
-    "Tipo de Artículo",
-    "Concepto Diseño",
-    "FECHA VENTA",
-    "Organización Ventas"
-    FROM HEP300.VW_CD_REPORTE_VENTAS_ALL_2016 
-    WHERE (CANAL = 'FRANQUICIAS' OR CANAL = 'TIENDAS PROPIAS') AND "AÑO" >= 2018
-    '''
-    df_canal = pd.read_sql_query(sql, conn)
-    df_canal = df_canal.loc[df_canal['Sublínea'] == 'BASICOS']
+    # conn = db.connect(address='10.0.0.110', port='30015',
+    #                   user='DESARROLLO', password='DevHermeco.2022')
+    # sql = '''SELECT "AÑO",
+    # "MES",
+    # "UNIDADES",
+    # "Sublínea",
+    # "Mundo",
+    # "Grupo de Artículo",
+    # "Tipo de Artículo",
+    # "Concepto Diseño",
+    # "FECHA VENTA",
+    # "Organización Ventas"
+    # FROM HEP300.VW_CD_REPORTE_VENTAS_ALL_2016
+    # WHERE (CANAL = 'FRANQUICIAS' OR CANAL = 'TIENDAS PROPIAS') AND "AÑO" >= 2018
+    # '''
+    # df_canal = pd.read_sql_query(sql, conn)
+    # df_canal = df_canal.loc[df_canal['Sublínea'] == 'BASICOS']
+    # df_canal = df_canal.loc[df_canal['Mundo'] == 'NIÑO']
+    # df_canal = df_canal.loc[df_canal['Tipo ARtículo'] == 'CAMISA MANGA LARGA']
+
+    df_canal = pd.read_excel('ejemplo.xlsx')
 
     return df_canal
 
@@ -212,3 +216,97 @@ def resultados_modelo_mensual(df):
 
         else:
             basicos_forecast[mes] = 0
+
+
+# --------------------------------------------------------------------------------------
+# FUNCIONES MODELO:
+
+# MODELO PARA PRONOSTICO FUTURO
+# MODELO LINEAL
+# DF_MODEL_MONTH DEBE INCLUIR LAS SIGUIENTES COLUMNAS
+# UNIDADES, COVID, MONTH, YEAR -- EN ESE ORDEN SIEMPRE
+def XGB_model_future(df_model_month, initial_Date=None):
+
+    new_dates = pd.date_range(start='2023-04-01', end='2023-10-01', freq='MS')
+    new_df = pd.DataFrame({'UNIDADES': 0, 'covid': 0,
+                          'month': new_dates.month, 'year': new_dates.year}, index=new_dates)
+    new_df.index.name = 'FECHA'
+
+    new_X = new_df.drop(['UNIDADES'], axis=1)
+
+    limit_month = '2023-04-01'
+    train_month = df_model_month.loc[df_model_month['FECHA'] < limit_month].set_index(
+        'FECHA')  # .drop(columns={'FECHA'},axis=1)
+
+    X_train, y_train = create_features_mes_venta(train_month, label='UNIDADES')
+
+    xg_reg = xgb.XGBRegressor(base_score=0.5, booster='gbtree',
+                              n_estimators=1000,
+                              objective='reg:squarederror',
+                              max_depth=3,
+                              learning_rate=0.01,
+                              eval_metric=['rmse', 'mae', 'mape']
+                              )
+
+    # Fit the model to the training data
+    xg_reg.fit(X_train, y_train)
+
+    # test_month['forecast'] = np.ceil(xg_reg.predict(X_test))
+    new_df['predicted_sales'] = np.ceil(xg_reg.predict(new_X))
+
+    return new_df
+
+
+def model_future_function(basicos_individual):
+
+    df_model = basicos_individual.groupby(
+        'FECHA')['UNIDADES'].sum().reset_index()
+
+    df_model['FECHA'] = df_model['FECHA'].apply(lambda x: x.to_timestamp())
+    df_model = df_model.loc[df_model['FECHA'] <= '2023-03-01']
+
+    df_model['covid'] = [1 if ((x > pd.Timestamp(
+        '2020-03')) & (x < pd.Timestamp('2021-03'))) else 0 for x in df_model.FECHA]
+    df_model['month'] = df_model['FECHA'].dt.month
+    df_model['year'] = df_model['FECHA'].dt.year
+
+    # meses_basicos = [4, 5, 6, 7, 8, 9, 10]
+    # basicos_results_monthly = pd.DataFrame()
+
+    # opcion 1
+    basicos_results_Linear = pd.DataFrame()
+    basicos_results_Linear = pd.concat(
+        [basicos_results_Linear, XGB_model_future(df_model)])
+    basicos_results_Linear = basicos_results_Linear.sort_index()
+
+    return basicos_results_Linear
+
+    # print(basicos_results_monthly)
+
+    # OPCION 2
+    # ESTE CICLO PRONOSTICA VENTAS DESDE ABRIL HASTA OCTUBRE
+
+    # for mes in meses_basicos:
+
+    #     df_model2 = df_model.loc[df_model['month'] == mes]
+
+    #     if mes in df_model2['month'].unique():
+    #         # Data for test
+    #         last_date_train = df_model2.FECHA.iloc[len(df_model2)-1]
+
+    #         date_obj = datetime.strptime(last_date_train.strftime('%Y-%m-%d'), '%Y-%m-%d')
+    #         forecast_date = date_obj + relativedelta(years=1)
+
+    #         final_date_test = datetime.strftime(forecast_date, '%Y-%m-%d')
+    #         basicos_results_monthly = pd.concat([basicos_results_monthly,XGB_model_future_monthly(df_model2, final_date_test)])
+    #         basicos_results_monthly = basicos_results_monthly.sort_index()
+
+
+def filter_function(mundo, tipo, df):
+    df['FECHA'] = pd.to_datetime(df['FECHA VENTA']).dt.to_period('M')
+    basicos = df.loc[df['Concepto Diseño'] == 'BASICOS']
+
+    single_data = basicos.loc[basicos['Mundo'] == mundo]
+    single_data = single_data.loc[single_data['Tipo de Artículo'] == tipo]
+
+    return single_data

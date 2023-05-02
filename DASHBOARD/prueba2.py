@@ -1,59 +1,31 @@
+import dash
+import dash_core_components as dcc
+import dash_html_components as html
 
-import pandas as pd
-from dash import Dash, dcc, html
-import functions
-
-root = 'C:/Users/HELENAMM/OneDrive - offcorss.com/OC Magic Data/Proyecto pronostico/Modelos fase 2/Data/VENTAS_2018_1.xlsx'
-data = (
-    pd.read_excel('prueba_dash.xlsx')
-    # .query("type == 'conventional' and region == 'Albany'")
-    .assign(Date=lambda data: pd.to_datetime(data["FECHA VENTA"], format="%Y-%m-%d"))
-    .sort_values(by="Date")
-)
-
-# data = pd.read_excel(root).assign(Date=lambda data: pd.to_datetime(
-#     data["FECHA VENTA"], format="%Y-%m-%d")).sort_values(by="Date")
-
-data_plot = (functions.DATA_preparation_2022('NIÑA', 'MINIFALDA', data))
-
-app = Dash(__name__)
-
+app = dash.Dash()
 
 app.layout = html.Div(
     children=[
-        html.H1(children="Avocado Analytics"),
-        html.P(
-            children=(
-                "Analyze the behavior of avocado prices and the number"
-                " of avocados sold in the US between 2015 and 2018"
-            ),
+        html.Div(
+            children="Date Range", className="menu-title"
         ),
-        dcc.Graph(
-            figure={
-                "data": [
-                    {
-                        "x": data_plot["MES_AÑO"],
-                        "y": data_plot["UNIDADES"],
-                        "type": "lines",
-                    },
-                ],
-                "layout": {"title": "Average Price of Avocados"},
-            },
-        ),
-        dcc.Graph(
-            figure={
-                "data": [
-                    {
-                        "x": data["Date"],
-                        "y": data["UNIDADES"],
-                        "type": "lines",
-                    },
-                ],
-                "layout": {"title": "Avocados Sold"},
-            },
+        dcc.DatePickerRange(
+            id="date-range",
+            start_date_placeholder_text="Start Date",
+            end_date_placeholder_text="End Date",
+            calendar_orientation="vertical",
         ),
     ]
 )
+
+
+@app.callback(
+    Output("output", "children"),
+    [Input("date-range", "start_date"), Input("date-range", "end_date")]
+)
+def update_output(start_date, end_date):
+    return f"You selected {start_date} to {end_date}"
+
 
 if __name__ == "__main__":
     app.run_server(debug=True)
